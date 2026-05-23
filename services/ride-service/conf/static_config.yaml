@@ -1,0 +1,92 @@
+components_manager:
+    task_processors:
+        main-task-processor:
+            worker_threads: 4
+        fs-task-processor:
+            worker_threads: 2
+
+    default_task_processor: main-task-processor
+
+    components:
+        server:
+            listener:
+                port: 8080
+                task_processor: main-task-processor
+
+        logging:
+            fs-task-processor: fs-task-processor
+            loggers:
+                default:
+                    file_path: '@stderr'
+                    level: info
+                    overflow_behavior: discard
+
+        dynamic-config: {}
+        testsuite-support: {}
+
+        dns-client:
+            fs-task-processor: fs-task-processor
+        http-client:
+            load-enabled: true
+           
+        http-client-core: {}
+
+        http-client-middleware-pipeline: {}
+
+        auth-service:
+            jwt_secret: change-me-in-prod
+            jwt_ttl_seconds: 3600
+            password_pepper: taxi-svc-v1
+
+        ride-repository:
+            backend: sqlite
+            sqlite:
+                db_path: /data/rides.db
+
+        driver-client:
+            base_url: http://driver-service:8080
+            timeout_ms: 2000
+
+        user-client:
+            base_url: http://user-service:8080
+            timeout_ms: 2000
+
+        handler-ride-create:
+            path: /v1/rides
+            method: POST
+            task_processor: main-task-processor
+            auth:
+                types:
+                  - bearer
+
+        handler-ride-list-active:
+            path: /v1/rides
+            method: GET
+            task_processor: main-task-processor
+            auth:
+                types:
+                  - bearer
+
+        handler-ride-accept:
+            path: /v1/rides/{id}/accept
+            method: POST
+            task_processor: main-task-processor
+            auth:
+                types:
+                  - bearer
+
+        handler-ride-complete:
+            path: /v1/rides/{id}/complete
+            method: POST
+            task_processor: main-task-processor
+            auth:
+                types:
+                  - bearer
+
+        handler-user-rides:
+            path: /v1/users/{login}/rides
+            method: GET
+            task_processor: main-task-processor
+            auth:
+                types:
+                  - bearer

@@ -1,0 +1,53 @@
+components_manager:
+    task_processors:
+        main-task-processor:
+            worker_threads: 4
+        fs-task-processor:
+            worker_threads: 2
+
+    default_task_processor: main-task-processor
+
+    components:
+        server:
+            listener:
+                port: 8080
+                task_processor: main-task-processor
+
+        logging:
+            fs-task-processor: fs-task-processor
+            loggers:
+                default:
+                    file_path: '@stderr'
+                    level: info
+                    overflow_behavior: discard
+
+        dynamic-config: {}
+        testsuite-support: {}
+
+        auth-service:
+            jwt_secret: change-me-in-prod
+            jwt_ttl_seconds: 3600
+            password_pepper: taxi-svc-v1
+
+        driver-repository:
+            backend: sqlite
+            sqlite:
+                db_path: /data/users.db
+
+        handler-driver-register:
+            path: /v1/drivers
+            method: POST
+            task_processor: main-task-processor
+            auth:
+                types:
+                  - bearer
+
+        handler-driver-get-internal:
+            path: /internal/drivers/{login}
+            method: GET
+            task_processor: main-task-processor
+
+        handler-driver-set-status-internal:
+            path: /internal/drivers/{login}/status
+            method: POST
+            task_processor: main-task-processor

@@ -1,0 +1,548 @@
+openapi: 3.0.3
+
+info:
+  title: Taxi Service API
+  version: "1.0.0"
+  description: |
+    REST API сервиса заказа такси
+
+servers:
+  - url: http://localhost:8080
+    description: Локальный сервис
+
+tags:
+  - name: auth
+    description: Регистрация
+  - name: users
+    description: Поиск и история пользователей-пассажиров.
+  - name: drivers
+    description: Регистрация водителя поверх существующего пользователя.
+  - name: rides
+    description: Заказы поездок (создание, принятие, завершение).
+
+security:
+  - bearerAuth: []
+
+paths:
+
+  /v1/login:
+    post:
+      tags: [auth]
+      summary: Логин
+      description: |
+        Принимает логин и пароль, при совпадении возвращает JWT
+      operationId: login
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginRequest'
+            examples:
+              ivan:
+                summary: Обычный логин
+                value: { login: "ivan", password: "secret" }
+      responses:
+        '200':
+          description: JWT выпущен
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LoginResponse'
+              examples:
+                ok:
+                  value:
+                    token: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJpdmFuIiwiZXhwIjoxNzE2MjAwMDAwfQ.signature"
+                    token_type: "Bearer"
+                    expires_in: 3600
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          description: Неверный логин или пароль
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+              examples:
+                bad_creds:
+                  value: { error: invalid_credentials, message: "invalid login or password" }
+
+  /v1/users:
+    post:
+      tags: [users]
+      summary: Создать пользователя (регистрация пассажира)
+      description: Открытый endpoint. Логин уникален; роль по умолчанию `passenger`.
+      operationId: createUser
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/CreateUserRequest' }
+            examples:
+              ivan:
+                value:
+                  login: "ivan"
+                  password: "secret"
+                  first_name: "Иван"
+                  last_name: "Иванов"
+                  email: "ivan@example.com"
+      responses:
+        '201':
+          description: Пользователь создан
+          headers:
+            Location:
+              description: Ссылка на ресурс созданного пользователя
+              schema: { type: string, example: "/v1/users?login=ivan" }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/User' }
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '409':
+          description: Логин уже занят
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+              examples:
+                taken:
+                  value: { error: login_taken, message: "login 'ivan' is already taken" }
+
+    get:
+      tags: [users]
+      summary: Найти пользователя по логину или поиск по маске ФИО
+      operationId: findUsers
+      parameters:
+        - in: query
+          name: login
+          schema: { type: string }
+          example: "ivan"
+          description: Точный логин искомого пользователя.
+        - in: query
+          name: nameMask
+          schema: { type: string }
+          example: "Ив"
+          description: Подстрока для поиска по имени/фамилии
+      responses:
+        '200':
+          description: Найдено
+          content:
+            application/json:
+              oneOf:
+                - schema: { $ref: '#/components/schemas/User' }
+                - schema: { $ref: '#/components/schemas/UserList' }
+              examples:
+                by_login:
+                  summary: ?login=ivan
+                  value:
+                    id: "u-1"
+                    login: "ivan"
+                    first_name: "Иван"
+                    last_name: "Иванов"
+                    email: "ivan@example.com"
+                    role: "passenger"
+                by_mask:
+                  summary: ?nameMask=Ив
+                  value:
+                    items:
+                      - id: "u-1"
+                        login: "ivan"
+                        first_name: "Иван"
+                        last_name: "Иванов"
+                        email: "ivan@example.com"
+                        role: "passenger"
+                    count: 1
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /v1/users/{login}/rides:
+    get:
+      tags: [users]
+      summary: История поездок пользователя
+      operationId: getUserRides
+      parameters:
+        - in: path
+          name: login
+          required: true
+          schema: { type: string }
+          example: "ivan"
+      responses:
+        '200':
+          description: Список поездок пользователя
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/RideList' }
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /v1/drivers:
+    post:
+      tags: [drivers]
+      summary: Регистрация водителя
+      operationId: registerDriver
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/CreateDriverRequest' }
+            examples:
+              ivan:
+                value:
+                  car_model: "Hyundai Solaris"
+                  car_number: "А123ВС777"
+                  car_class: "economy"
+      responses:
+        '201':
+          description: Водитель зарегистрирован
+          headers:
+            Location:
+              schema: { type: string, example: "/v1/drivers/d-1" }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Driver' }
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          description: Водитель для этого логина уже зарегистрирован
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+              examples:
+                exists:
+                  value: { error: driver_exists, message: "driver for 'ivan' is already registered" }
+
+  /v1/rides:
+    post:
+      tags: [rides]
+      summary: Создать заказ поездки
+      description: Создаёт заказ от имени пассажира из JWT.
+      operationId: createRide
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/CreateRideRequest' }
+            examples:
+              moscow:
+                value:
+                  from: { lat: 55.7558, lon: 37.6173 }
+                  to:   { lat: 55.7522, lon: 37.6156 }
+                  car_class: "economy"
+      responses:
+        '201':
+          description: Заказ создан
+          headers:
+            Location:
+              schema: { type: string, example: "/v1/rides/r-1" }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Ride' }
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+    get:
+      tags: [rides]
+      summary: Активные заказы (только для водителей)
+      description: |
+        Возвращает все заказы в статусе `CREATED`. Доступно только
+        зарегистрированным водителям — пассажир получит `403 Forbidden`.
+      operationId: listActiveRides
+      parameters:
+        - in: query
+          name: status
+          required: true
+          schema:
+            type: string
+            enum: [active]
+          example: active
+          description: Поддерживается только `active`.
+      responses:
+        '200':
+          description: Список активных заказов
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/RideList' }
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+  /v1/rides/{id}/accept:
+    post:
+      tags: [rides]
+      summary: Принять заказ водителем
+      operationId: acceptRide
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string }
+          example: "r-1"
+      responses:
+        '200':
+          description: Заказ принят
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Ride' }
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          description: Заказ уже принят/завершён
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+
+  /v1/rides/{id}/complete:
+    post:
+      tags: [rides]
+      summary: Завершить поездку
+      description: |
+        Переводит заказ из `ACCEPTED` в `COMPLETED`. Доступно только
+        водителю, который принял заказ.
+      operationId: completeRide
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string }
+          example: "r-1"
+      responses:
+        '200':
+          description: Поездка завершена
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Ride' }
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          description: Заказ не в статусе ACCEPTED или принят другим водителем
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+
+components:
+
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: |
+        Заголовок `Authorization: Bearer <jwt>`. Токен выпускается через
+        `POST /v1/login`. Подпись HS256, payload `{ sub, exp }`.
+
+  schemas:
+
+    LoginRequest:
+      type: object
+      required: [login, password]
+      properties:
+        login:    { type: string, example: "ivan" }
+        password: { type: string, format: password, example: "secret" }
+
+    LoginResponse:
+      type: object
+      required: [token, token_type, expires_in]
+      properties:
+        token:      { type: string, description: JWT (HS256) }
+        token_type: { type: string, example: "Bearer" }
+        expires_in: { type: integer, description: TTL токена в секундах, example: 3600 }
+
+    CreateUserRequest:
+      type: object
+      required: [login, password, first_name, last_name]
+      properties:
+        login:      { type: string, example: "ivan" }
+        password:   { type: string, format: password, example: "secret" }
+        first_name: { type: string, example: "Иван" }
+        last_name:  { type: string, example: "Иванов" }
+        email:      { type: string, format: email, example: "ivan@example.com" }
+
+    User:
+      type: object
+      required: [id, login, first_name, last_name, role]
+      properties:
+        id:         { type: string, example: "u-1" }
+        login:      { type: string, example: "ivan" }
+        first_name: { type: string, example: "Иван" }
+        last_name:  { type: string, example: "Иванов" }
+        email:      { type: string, example: "ivan@example.com" }
+        role:
+          type: string
+          enum: [passenger, driver]
+          example: passenger
+
+    UserList:
+      type: object
+      required: [items, count]
+      properties:
+        items:
+          type: array
+          items: { $ref: '#/components/schemas/User' }
+        count:
+          type: integer
+          example: 1
+
+    CreateDriverRequest:
+      type: object
+      required: [car_model, car_number]
+      properties:
+        login:
+          type: string
+          example: "ivan"
+        car_model:  { type: string, example: "Hyundai Solaris" }
+        car_number: { type: string, example: "А123ВС777" }
+        car_class:
+          type: string
+          enum: [economy, comfort, business]
+          default: economy
+          example: economy
+
+    Driver:
+      type: object
+      required: [id, user_id, login, car_model, car_number, car_class, status]
+      properties:
+        id:         { type: string, example: "d-1" }
+        user_id:    { type: string, example: "u-1" }
+        login:      { type: string, example: "ivan" }
+        car_model:  { type: string, example: "Hyundai Solaris" }
+        car_number: { type: string, example: "А123ВС777" }
+        car_class:
+          type: string
+          enum: [economy, comfort, business]
+        status:
+          type: string
+          enum: [OFFLINE, FREE, BUSY]
+          example: OFFLINE
+
+    GeoPoint:
+      type: object
+      required: [lat, lon]
+      properties:
+        lat: { type: number, format: double, example: 55.7558 }
+        lon: { type: number, format: double, example: 37.6173 }
+
+    CreateRideRequest:
+      type: object
+      required: [from, to]
+      properties:
+        from:      { $ref: '#/components/schemas/GeoPoint' }
+        to:        { $ref: '#/components/schemas/GeoPoint' }
+        car_class:
+          type: string
+          enum: [economy, comfort, business]
+          default: economy
+
+    Ride:
+      type: object
+      required:
+        - id
+        - passenger_login
+        - from
+        - to
+        - car_class
+        - status
+        - price
+        - created_at
+      properties:
+        id:               { type: string, example: "r-1" }
+        passenger_login:  { type: string, example: "ivan" }
+        driver_login:
+          type: string
+          nullable: true
+          example: "petr"
+        from: { $ref: '#/components/schemas/GeoPoint' }
+        to:   { $ref: '#/components/schemas/GeoPoint' }
+        car_class:
+          type: string
+          enum: [economy, comfort, business]
+        status:
+          type: string
+          enum: [CREATED, ACCEPTED, COMPLETED, CANCELLED]
+          example: CREATED
+        price:
+          type: number
+          format: double
+          example: 250.0
+        created_at:
+          type: string
+          format: date-time
+          example: "2026-05-19T12:00:00Z"
+
+    RideList:
+      type: object
+      required: [items, count]
+      properties:
+        items:
+          type: array
+          items: { $ref: '#/components/schemas/Ride' }
+        count:
+          type: integer
+          example: 1
+
+    Error:
+      type: object
+      required: [error, message]
+      properties:
+        error:
+          type: string
+          description: Машино-читаемый код ошибки.
+          example: validation_failed
+        message:
+          type: string
+          description: Человекочитаемое описание.
+          example: "login and password are required"
+
+  responses:
+    BadRequest:
+      description: Некорректное тело запроса или параметры
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+          examples:
+            invalid_json:
+              value: { error: invalid_json, message: "unexpected end of JSON" }
+            validation:
+              value: { error: validation_failed, message: "login and password are required" }
+
+    Forbidden:
+      description: Аутентифицирован, но у роли нет прав на действие
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+          examples:
+            not_driver:
+              value: { error: forbidden, message: "only drivers can accept rides" }
+
+    NotFound:
+      description: Ресурс не существует
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+          examples:
+            user:
+              value: { error: user_not_found, message: "user 'ivan' not found" }
+            ride:
+              value: { error: ride_not_found, message: "ride 'r-1' not found" }

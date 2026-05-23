@@ -1,0 +1,62 @@
+components_manager:
+    task_processors:
+        main-task-processor:
+            worker_threads: 4
+        fs-task-processor:
+            worker_threads: 2
+
+    default_task_processor: main-task-processor
+
+    components:
+        server:
+            listener:
+                port: 8080
+                task_processor: main-task-processor
+
+        logging:
+            fs-task-processor: fs-task-processor
+            loggers:
+                default:
+                    file_path: '@stderr'
+                    level: info
+                    overflow_behavior: discard
+
+        dynamic-config: {}
+        testsuite-support: {}
+
+        # JWT issuer / verifier. Secret/pepper come from env JWT_SECRET /
+        # PASSWORD_PEPPER if set — see services/common/auth/auth_service.cpp.
+        auth-service:
+            jwt_secret: change-me-in-prod
+            jwt_ttl_seconds: 3600
+            password_pepper: taxi-svc-v1
+
+        # Backend selector: today sqlite, tomorrow postgres. Swap by changing
+        # `backend:` and (in the future) adding a `postgres:` block.
+        user-repository:
+            backend: sqlite
+            sqlite:
+                db_path: /data/users.db
+
+        handler-auth-login:
+            path: /v1/login
+            method: POST
+            task_processor: main-task-processor
+
+        handler-user-create:
+            path: /v1/users
+            method: POST
+            task_processor: main-task-processor
+
+        handler-user-get:
+            path: /v1/users
+            method: GET
+            task_processor: main-task-processor
+            auth:
+                types:
+                  - bearer
+
+        handler-user-get-internal:
+            path: /internal/users/{login}
+            method: GET
+            task_processor: main-task-processor
