@@ -1,0 +1,63 @@
+components_manager:
+    task_processors:
+        main-task-processor:
+            worker_threads: 4
+        fs-task-processor:
+            worker_threads: 2
+        consumer-task-processor:
+            thread_name: kafka-consumer
+            worker_threads: 1
+        consumer-blocking-task-processor:
+            thread_name: kafka-consumer-blocking
+            worker_threads: 1
+        producer-task-processor:
+            thread_name: kafka-producer
+            worker_threads: 2
+
+    default_task_processor: main-task-processor
+
+    components:
+        server:
+            listener:
+                port: 8080
+                task_processor: main-task-processor
+
+        logging:
+            fs-task-processor: fs-task-processor
+            loggers:
+                default:
+                    file_path: '@stderr'
+                    level: info
+                    overflow_behavior: discard
+
+        dynamic-config: {}
+        testsuite-support: {}
+
+        default-secdist-provider:
+            config: /app/conf/event-service/secure_data.json
+            missing-ok: true
+            environment-secrets-key: SECDIST_CONFIG
+
+        secdist: {}
+
+        kafka-producer:
+            delivery_timeout: 10s
+            queue_buffering_max: 100ms
+            enable_idempotence: true
+            security_protocol: PLAINTEXT
+
+        kafka-consumer:
+            group_id: taxi-event-service
+            topics:
+              - taxi.events
+            auto_offset_reset: smallest
+            max_batch_size: 10
+            poll_timeout: 500ms
+            security_protocol: PLAINTEXT
+
+        event-consumer: {}
+
+        handler-event-produce:
+            path: /v1/events/demo
+            method: POST
+            task_processor: main-task-processor

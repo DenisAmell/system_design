@@ -4,16 +4,13 @@ project(taxi_services CXX)
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
-find_package(userver REQUIRED COMPONENTS core sqlite REQUIRED)
+find_package(userver REQUIRED COMPONENTS core sqlite kafka)
 find_package(PostgreSQL REQUIRED)
 find_package(PkgConfig REQUIRED)
 pkg_check_modules(MONGOC   REQUIRED IMPORTED_TARGET libmongoc-1.0)
 pkg_check_modules(HIREDIS  REQUIRED IMPORTED_TARGET hiredis)
 
-# ---------------------------------------------------------------------------
-# Shared code: JWT codec, auth-service component, bearer auth-checker,
-# Redis client (used by both caching and rate-limiting for lab 5).
-# ---------------------------------------------------------------------------
+
 add_library(taxi_common STATIC
     services/common/auth/auth_service.cpp
     services/common/auth/auth_checker.cpp
@@ -74,3 +71,14 @@ target_link_libraries(ride_service
         userver::core
         PostgreSQL::PostgreSQL
         SQLite::SQLite3)
+
+add_executable(event_service
+    services/event-service/main.cpp
+    services/event-service/handlers/event_consumer.cpp
+    services/event-service/handlers/event_producer.cpp
+)
+target_include_directories(event_service PRIVATE services/event-service)
+target_link_libraries(event_service
+    PRIVATE
+        userver::core
+        userver::kafka)

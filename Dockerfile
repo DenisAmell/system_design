@@ -6,6 +6,7 @@ RUN apt-get update \
       curl \
       git \
       libhiredis-dev \
+      librdkafka-dev \
       libmongoc-dev \
       libpq-dev \
       libsqlite3-dev \
@@ -23,13 +24,14 @@ RUN --mount=type=cache,target=/root/.cache/ccache \
       -DUSERVER_FEATURE_REDIS=OFF \
       -DUSERVER_FEATURE_MONGODB=OFF \
       -DUSERVER_FEATURE_GRPC=OFF \
+      -DUSERVER_FEATURE_KAFKA=ON \
       -DUSERVER_FEATURE_SQLITE=ON \
  && cmake --build build -j"$(nproc)"
 
 FROM --platform=linux/amd64 ghcr.io/userver-framework/ubuntu-22.04-userver:latest AS runtime
 
 RUN apt-get update \
- && apt-get install -y --no-install-recommends libbson-1.0-0 libhiredis0.14 libmongoc-1.0-0 libpq5 libsqlite3-0 \
+ && apt-get install -y --no-install-recommends libbson-1.0-0 libhiredis0.14 librdkafka1 libmongoc-1.0-0 libpq5 libsqlite3-0 \
  && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
@@ -37,9 +39,11 @@ WORKDIR /app
 COPY --from=build /src/build/user_service     ./user_service
 COPY --from=build /src/build/driver_service   ./driver_service
 COPY --from=build /src/build/ride_service     ./ride_service
+COPY --from=build /src/build/event_service    ./event_service
 COPY --from=build /src/services/user-service/conf   ./conf/user-service
 COPY --from=build /src/services/driver-service/conf ./conf/driver-service
 COPY --from=build /src/services/ride-service/conf   ./conf/ride-service
+COPY --from=build /src/services/event-service/conf  ./conf/event-service
 
 RUN mkdir -p /data
 VOLUME ["/data"]

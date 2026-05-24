@@ -15,6 +15,7 @@ x-backend-base: &backend-base
     REDIS_HOST: redis
     REDIS_PORT: "6379"
     LOGIN_RATE_LIMIT: ${LOGIN_RATE_LIMIT:-30}
+    SECDIST_CONFIG: '{"kafka_settings":{"kafka-producer":{"brokers":"kafka:9092","username":"","password":""},"kafka-consumer":{"brokers":"kafka:9092","username":"","password":""}}}'
 services:
 
   postgres:
@@ -50,6 +51,43 @@ services:
       retries: 10
     restart: unless-stopped
 
+  kafka:
+    image: confluentinc/cp-kafka:7.6.1
+    container_name: taxi-kafka
+    platform: linux/amd64
+    environment:
+      CLUSTER_ID: MkU3OEVBNTcwNTJENDM2Qk
+      KAFKA_NODE_ID: 1
+      KAFKA_PROCESS_ROLES: broker,controller
+      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@kafka:9093
+      KAFKA_LISTENERS: PLAINTEXT://:9092,CONTROLLER://:9093
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT
+      KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
+    ports:
+      - "${KAFKA_PORT:-9092}:9092"
+    healthcheck:
+      test: ["CMD-SHELL", "kafka-topics --bootstrap-server localhost:9092 --list >/dev/null 2>&1"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    restart: unless-stopped
+
+  kafka-init:
+    image: confluentinc/cp-kafka:7.6.1
+    container_name: taxi-kafka-init
+    platform: linux/amd64
+    depends_on:
+      kafka:
+        condition: service_healthy
+    command: ["/bin/bash", "-c", "kafka-topics --bootstrap-server kafka:9092 --create --if-not-exists --topic taxi.events --partitions 1 --replication-factor 1"]
+    restart: "no"
+
   mongo:
     image: mongo:7
     container_name: taxi-mongo
@@ -81,6 +119,7 @@ services:
       - user-service
       - driver-service
       - ride-service
+      - event-service
     restart: unless-stopped
 
   user-service:
@@ -126,6 +165,15 @@ services:
         condition: service_healthy
     volumes:
       - taxi-rides-data:/data
+
+  event-service:
+    <<: *backend-base
+    container_name: taxi-event-service
+    command: ["/app/event_service",
+              "--config", "/app/conf/event-service/static_config.yaml"]
+    depends_on:
+      kafka-init:
+        condition: service_completed_successfully
 
   swagger-ui:
     image: swaggerapi/swagger-ui:latest

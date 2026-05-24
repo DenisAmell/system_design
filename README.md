@@ -64,16 +64,19 @@ TAXI_USER_DB_BACKEND=mongo docker compose up --build -d
 - [lab2](./docs/lab2.md) — Проектирование, реализация, документирование и тестирование REST API.
 - [lab3](./docs/lab3.md) — Проектирование PostgreSQL БД, индексы, оптимизация и подключение API.
 - [lab4](./docs/lab4.md) — Проектирование MongoDB, CRUD, валидация схем и подключение API.
-- [lab5](./docs/lab5.md) — Redis-кеш и rate limiting на горячих endpoint'ах.
+- [lab5](./docs/lab5.md) — Оптимизация производительности через кеширование и rate
+limiting.
+- [lab6](./docs/lab6.md) — Проектирование Event-Driven архитектуры, Kafka и CQRS.
 
 ## Файлы
 - [workspace.dsl](./workspace.dsl) — описание архитектуры в формате Structurizr DSL.
 - [openapi.yaml](./openapi.yaml) — спецификация API.
 - [performance_design](./performance_design.md) - описание стратегии кеширования и rate limiting
+- [event_driven_design.md](/Users/denis/system_design/event-driven/event_driven_design.md) - описание Event-Driven архитектуры
+- [event_catalog.md](/Users/denis/system_design/event-driven/event_catalog.md) - каталог событий
 
 SQL-артефакты находятся в папке [database](./database):
 `schema.sql`, `data.sql`, `queries.sql`, `optimization.md`.
 
 MongoDB-артефакты лнаходятся в папке [mongodb](./mongodb):
 `schema_design.md`, `data.js`, `queries.js`, `validation.js`, `README.md`.
-
