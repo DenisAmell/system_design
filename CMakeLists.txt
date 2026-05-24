@@ -5,6 +5,9 @@ set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 find_package(userver REQUIRED COMPONENTS core sqlite REQUIRED)
+find_package(PostgreSQL REQUIRED)
+find_package(PkgConfig REQUIRED)
+pkg_check_modules(MONGOC REQUIRED IMPORTED_TARGET libmongoc-1.0)
 
 add_library(taxi_common STATIC
     services/common/auth/auth_service.cpp
@@ -16,6 +19,8 @@ target_link_libraries(taxi_common PUBLIC userver::core)
 add_executable(user_service
     services/user-service/main.cpp
     services/user-service/handlers/handlers.cpp
+    services/user-service/repository/mongo_user_repository.cpp
+    services/user-service/repository/postgres_user_repository.cpp
     services/user-service/repository/sqlite_user_repository.cpp
     services/user-service/repository/user_repository.cpp
 )
@@ -24,11 +29,14 @@ target_link_libraries(user_service
     PRIVATE
         taxi_common
         userver::core
+        PkgConfig::MONGOC
+        PostgreSQL::PostgreSQL
         SQLite::SQLite3)
 
 add_executable(driver_service
     services/driver-service/main.cpp
     services/driver-service/handlers/handlers.cpp
+    services/driver-service/repository/postgres_driver_repository.cpp
     services/driver-service/repository/sqlite_driver_repository.cpp
     services/driver-service/repository/driver_repository.cpp
 )
@@ -37,6 +45,7 @@ target_link_libraries(driver_service
     PRIVATE
         taxi_common
         userver::core
+        PostgreSQL::PostgreSQL
         SQLite::SQLite3)
 
 add_executable(ride_service
@@ -44,6 +53,7 @@ add_executable(ride_service
     services/ride-service/handlers/handlers.cpp
     services/ride-service/clients/driver_client.cpp
     services/ride-service/clients/user_client.cpp
+    services/ride-service/repository/postgres_ride_repository.cpp
     services/ride-service/repository/sqlite_ride_repository.cpp
     services/ride-service/repository/ride_repository.cpp
 )
@@ -52,4 +62,5 @@ target_link_libraries(ride_service
     PRIVATE
         taxi_common
         userver::core
+        PostgreSQL::PostgreSQL
         SQLite::SQLite3)

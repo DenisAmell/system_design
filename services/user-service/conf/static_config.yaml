@@ -31,12 +31,16 @@ components_manager:
             jwt_ttl_seconds: 3600
             password_pepper: taxi-svc-v1
 
-        # Backend selector: today sqlite, tomorrow postgres. Swap by changing
-        # `backend:` and (in the future) adding a `postgres:` block.
+        # Backend selector. Override with TAXI_DB_BACKEND=sqlite|postgres.
         user-repository:
             backend: sqlite
             sqlite:
                 db_path: /data/users.db
+            postgres:
+                dsn: host=postgres port=5432 dbname=taxi user=taxi password=taxi
+            mongo:
+                uri: mongodb://taxi:taxi@mongo:27017/taxi?authSource=admin
+                db_name: taxi
 
         handler-auth-login:
             path: /v1/login

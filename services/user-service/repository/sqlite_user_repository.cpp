@@ -77,6 +77,7 @@ SqliteUserRepository::~SqliteUserRepository() {
 }
 
 void SqliteUserRepository::InitSchema() {
+    Exec(db_, R"(
         CREATE TABLE IF NOT EXISTS users (
             id            TEXT PRIMARY KEY,
             login         TEXT UNIQUE NOT NULL,

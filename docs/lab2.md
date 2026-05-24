@@ -4,7 +4,7 @@
 использованием принципов REST, обработкой HTTP запросов, реализацией аутентификации
 и документированием API
 
-## 1. Проектирование REST API
+## Проектирование REST API
 
 ### Базовый URL
 
@@ -117,51 +117,67 @@
 ```
 
 
-### Запуск
-```bash
-docker compose up --build
-```
+### Примеры запросов
 
-### Примеры запросов (curl)
+#### 1. Зарегистрировать пассажира и водителя
 ```bash
-# 1. Зарегистрировать пассажира и водителя (без токена)
 curl -X POST http://localhost:8080/v1/users -H 'Content-Type: application/json' \
   -d '{"login":"ivan","password":"secret","first_name":"Иван","last_name":"Иванов","email":"i@e.com"}'
+
 curl -X POST http://localhost:8080/v1/users -H 'Content-Type: application/json' \
   -d '{"login":"petr","password":"secret","first_name":"Петр","last_name":"Петров","email":"p@e.com"}'
+```
 
-# 2. Получить JWT для каждого
+### 2. Получить JWT для каждого
+```bash
 TOKEN_IVAN=$(curl -s -X POST http://localhost:8080/v1/login -H 'Content-Type: application/json' \
   -d '{"login":"ivan","password":"secret"}' | jq -r .token)
+
 TOKEN_PETR=$(curl -s -X POST http://localhost:8080/v1/login -H 'Content-Type: application/json' \
   -d '{"login":"petr","password":"secret"}' | jq -r .token)
+```
 
-# 3. Зарегистрировать petr как водителя
+#### 3. Зарегистрировать petr как водителя
+```bash
 curl -X POST http://localhost:8080/v1/drivers \
   -H "Authorization: Bearer $TOKEN_PETR" -H 'Content-Type: application/json' \
   -d '{"car_model":"Solaris","car_number":"А1","car_class":"economy"}'
+```
 
-# 4. Пассажир создаёт поездку
+#### 4. Пассажир создаёт поездку
+```bash
 curl -X POST http://localhost:8080/v1/rides \
   -H "Authorization: Bearer $TOKEN_IVAN" -H 'Content-Type: application/json' \
   -d '{"from":{"lat":55.75,"lon":37.61},"to":{"lat":55.76,"lon":37.62},"car_class":"economy"}'
+```
 
-# 5. Найти пользователя по логину
+#### 5. Найти пользователя по логину
+```bash
 curl "http://localhost:8080/v1/users?login=ivan" -H "Authorization: Bearer $TOKEN_IVAN"
+```
 
-# 6. Поиск пользователя по маске ФИО
+#### 6. Поиск пользователя по маске ФИО
+```bash
 curl "http://localhost:8080/v1/users?nameMask=Ив" -H "Authorization: Bearer $TOKEN_IVAN"
+```
 
-# 7. Активные заказы (только для водителя)
+#### 7. Активные заказы (только для водителя)
+```bash
 curl "http://localhost:8080/v1/rides?status=active" -H "Authorization: Bearer $TOKEN_PETR"
+```
 
-# 8. Принять заказ
+#### 8. Принять заказ
+```bash
 curl -X POST http://localhost:8080/v1/rides/r-1/accept   -H "Authorization: Bearer $TOKEN_PETR"
+```
 
-# 9. Завершить поездку
+#### 9. Завершить поездку
+```bash
 curl -X POST http://localhost:8080/v1/rides/r-1/complete -H "Authorization: Bearer $TOKEN_PETR"
+```
 
-# 10. История пользователя
+#### 10. История пользователя
+```bash
 curl http://localhost:8080/v1/users/ivan/rides -H "Authorization: Bearer $TOKEN_IVAN"
 ```
 
@@ -180,4 +196,11 @@ python3 -m venv .venv && source .venv/bin/activate
 pip install -r tests/requirements.txt
 docker compose up -d taxi-service
 pytest tests/ -v
+```
+
+## Запуск
+Запуск в SQLite-режиме:
+
+```bash
+TAXI_DB_BACKEND=sqlite docker compose up --build -d
 ```

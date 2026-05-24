@@ -42,6 +42,8 @@ components_manager:
             backend: sqlite
             sqlite:
                 db_path: /data/rides.db
+            postgres:
+                dsn: host=postgres port=5432 dbname=taxi user=taxi password=taxi
 
         driver-client:
             base_url: http://driver-service:8080
