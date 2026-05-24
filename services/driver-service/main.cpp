@@ -5,6 +5,7 @@
 
 #include "auth/auth_checker.hpp"
 #include "auth/auth_service.hpp"
+#include "cache/redis_client.hpp"
 #include "handlers/handlers.hpp"
 #include "repository/driver_repository.hpp"
 
@@ -15,6 +16,7 @@ int main(int argc, char* argv[]) {
     auto component_list = userver::components::MinimalServerComponentList()
         .Append<userver::components::TestsuiteSupport>()
         .Append<taxi::auth::AuthService>()
+        .Append<taxi::cache::RedisClient>()
         .Append<taxi::driver::repository::DriverRepository>()
         .Append<taxi::driver::handlers::DriverRegister>()
         .Append<taxi::driver::handlers::DriverGetInternal>()

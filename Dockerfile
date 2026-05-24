@@ -5,6 +5,7 @@ RUN apt-get update \
       wget \
       curl \
       git \
+      libhiredis-dev \
       libmongoc-dev \
       libpq-dev \
       libsqlite3-dev \
@@ -28,7 +29,7 @@ RUN --mount=type=cache,target=/root/.cache/ccache \
 FROM --platform=linux/amd64 ghcr.io/userver-framework/ubuntu-22.04-userver:latest AS runtime
 
 RUN apt-get update \
- && apt-get install -y --no-install-recommends libbson-1.0-0 libmongoc-1.0-0 libpq5 libsqlite3-0 \
+ && apt-get install -y --no-install-recommends libbson-1.0-0 libhiredis0.14 libmongoc-1.0-0 libpq5 libsqlite3-0 \
  && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app

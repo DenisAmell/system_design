@@ -7,14 +7,24 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 find_package(userver REQUIRED COMPONENTS core sqlite REQUIRED)
 find_package(PostgreSQL REQUIRED)
 find_package(PkgConfig REQUIRED)
-pkg_check_modules(MONGOC REQUIRED IMPORTED_TARGET libmongoc-1.0)
+pkg_check_modules(MONGOC   REQUIRED IMPORTED_TARGET libmongoc-1.0)
+pkg_check_modules(HIREDIS  REQUIRED IMPORTED_TARGET hiredis)
 
+# ---------------------------------------------------------------------------
+# Shared code: JWT codec, auth-service component, bearer auth-checker,
+# Redis client (used by both caching and rate-limiting for lab 5).
+# ---------------------------------------------------------------------------
 add_library(taxi_common STATIC
     services/common/auth/auth_service.cpp
     services/common/auth/auth_checker.cpp
+    services/common/cache/redis_client.cpp
+    services/common/cache/rate_limiter.cpp
 )
 target_include_directories(taxi_common PUBLIC services/common)
-target_link_libraries(taxi_common PUBLIC userver::core)
+target_link_libraries(taxi_common
+    PUBLIC
+        userver::core
+        PkgConfig::HIREDIS)
 
 add_executable(user_service
     services/user-service/main.cpp

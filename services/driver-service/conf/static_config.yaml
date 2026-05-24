@@ -29,6 +29,13 @@ components_manager:
             jwt_ttl_seconds: 3600
             password_pepper: taxi-svc-v1
 
+        # Shared Redis used to cache the by-login driver lookup hit by
+        # ride-service on every accept / complete / list-active call.
+        redis-client:
+            host: redis
+            port: 6379
+            connect_timeout_ms: 500
+
         driver-repository:
             backend: sqlite
             sqlite:

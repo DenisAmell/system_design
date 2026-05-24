@@ -6,6 +6,7 @@
 #include <userver/components/component_context.hpp>
 #include <userver/server/handlers/http_handler_base.hpp>
 
+#include "cache/redis_client.hpp"
 #include "repository/driver_repository.hpp"
 
 namespace taxi::driver::handlers {
@@ -23,11 +24,12 @@ namespace taxi::driver::handlers {
                                                                              \
     private:                                                                 \
         repository::DriverRepository& drivers_;                              \
+        cache::RedisClient& redis_;                                          \
     };
 
-TAXI_DRIVER_HANDLER(DriverRegister,    "handler-driver-register")
-TAXI_DRIVER_HANDLER(DriverGetInternal, "handler-driver-get-internal")
-TAXI_DRIVER_HANDLER(DriverSetStatusInternal, "handler-driver-set-status-internal")
+TAXI_DRIVER_HANDLER(DriverRegister,           "handler-driver-register")
+TAXI_DRIVER_HANDLER(DriverGetInternal,        "handler-driver-get-internal")
+TAXI_DRIVER_HANDLER(DriverSetStatusInternal,  "handler-driver-set-status-internal")
 
 #undef TAXI_DRIVER_HANDLER
 

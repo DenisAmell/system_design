@@ -29,15 +29,31 @@ userver::formats::json::Value ParseJsonOrThrow(const std::string& body) {
     }
 }
 
+constexpr std::string_view kDriverCacheKeyPrefix = "cache:driver:by_login:";
+constexpr int kDriverCacheTtlSeconds = 30;
+
+std::string DriverCacheKey(std::string_view login) {
+    std::string key{kDriverCacheKeyPrefix};
+    key.append(login);
+    return key;
+}
+
 }  // namespace
 
+#define TAXI_DRIVER_CTOR(Name)                                               \
+    Name::Name(const userver::components::ComponentConfig& cfg,              \
+               const userver::components::ComponentContext& ctx)             \
+        : userver::server::handlers::HttpHandlerBase(cfg, ctx),              \
+          drivers_(ctx.FindComponent<repository::DriverRepository>()),       \
+          redis_(ctx.FindComponent<cache::RedisClient>()) {}
 
-DriverRegister::DriverRegister(
-    const userver::components::ComponentConfig& cfg,
-    const userver::components::ComponentContext& ctx)
-    : userver::server::handlers::HttpHandlerBase(cfg, ctx),
-      drivers_(ctx.FindComponent<repository::DriverRepository>()) {}
+TAXI_DRIVER_CTOR(DriverRegister)
+TAXI_DRIVER_CTOR(DriverGetInternal)
+TAXI_DRIVER_CTOR(DriverSetStatusInternal)
 
+#undef TAXI_DRIVER_CTOR
+
+// ---------- POST /v1/drivers ----------
 std::string DriverRegister::HandleRequestThrow(
     const userver::server::http::HttpRequest& req,
     userver::server::request::RequestContext& ctx) const {
@@ -72,40 +88,44 @@ std::string DriverRegister::HandleRequestThrow(
             "driver for '" + d.login + "' is already registered"));
     }
     drivers_.Get().PromoteUserToDriver(d.login);
+    // Cache may hold a "this user is not a driver" 404 from a moments-ago
+    // ride-service call. Drop it so the next IsDriver check sees the truth.
+    redis_.Del(DriverCacheKey(d.login));
 
     resp.SetStatus(userver::server::http::HttpStatus::kCreated);
     resp.SetHeader(std::string{"Location"}, "/v1/drivers/" + d.id);
     return userver::formats::json::ToString(dto::ToJson(d));
 }
 
-
-DriverGetInternal::DriverGetInternal(
-    const userver::components::ComponentConfig& cfg,
-    const userver::components::ComponentContext& ctx)
-    : userver::server::handlers::HttpHandlerBase(cfg, ctx),
-      drivers_(ctx.FindComponent<repository::DriverRepository>()) {}
-
+// ---------- GET /internal/drivers/{login} ----------
+// Hot path: hit by ride-service on every accept / complete / list-active.
+// Cache-aside, short TTL because ride-service tolerates briefly-stale status.
 std::string DriverGetInternal::HandleRequestThrow(
     const userver::server::http::HttpRequest& req,
     userver::server::request::RequestContext&) const {
-    req.GetHttpResponse().SetContentType("application/json");
+    auto& resp = req.GetHttpResponse();
+    resp.SetContentType("application/json");
 
     const auto& login = req.GetPathArg("login");
+    const auto cache_key = DriverCacheKey(login);
+    if (auto cached = redis_.Get(cache_key); cached) {
+        resp.SetHeader(std::string{"X-Cache"}, "HIT");
+        return std::move(*cached);
+    }
     auto driver = drivers_.Get().GetByLogin(login);
     if (!driver) {
         throw ResourceNotFound(ErrorBody(
             "driver_not_found", "driver '" + login + "' not found"));
     }
-    return userver::formats::json::ToString(dto::ToJson(*driver));
+    const auto body = userver::formats::json::ToString(dto::ToJson(*driver));
+    redis_.SetEx(cache_key, body, kDriverCacheTtlSeconds);
+    resp.SetHeader(std::string{"X-Cache"}, "MISS");
+    return body;
 }
 
-
-DriverSetStatusInternal::DriverSetStatusInternal(
-    const userver::components::ComponentConfig& cfg,
-    const userver::components::ComponentContext& ctx)
-    : userver::server::handlers::HttpHandlerBase(cfg, ctx),
-      drivers_(ctx.FindComponent<repository::DriverRepository>()) {}
-
+// ---------- POST /internal/drivers/{login}/status ----------
+// Invalidates the by-login cache so ride-service's next read picks up the
+// new BUSY / FREE / OFFLINE status immediately.
 std::string DriverSetStatusInternal::HandleRequestThrow(
     const userver::server::http::HttpRequest& req,
     userver::server::request::RequestContext&) const {
@@ -123,6 +143,8 @@ std::string DriverSetStatusInternal::HandleRequestThrow(
         throw ResourceNotFound(ErrorBody(
             "driver_not_found", "driver '" + login + "' not found"));
     }
+    redis_.Del(DriverCacheKey(login));
+
     return userver::formats::json::ToString(
         userver::formats::json::MakeObject("login", login, "status", status));
 }

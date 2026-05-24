@@ -7,10 +7,16 @@
 #include <userver/server/handlers/http_handler_base.hpp>
 
 #include "auth/auth_service.hpp"
+#include "cache/rate_limiter.hpp"
+#include "cache/redis_client.hpp"
 #include "repository/user_repository.hpp"
 
 namespace taxi::user::handlers {
 
+// Every handler grabs the same four collaborators in its ctor — repository,
+// auth service, Redis-backed cache, and rate limiter. Most use only a subset,
+// but pinning references in the ctor keeps the macro simple and component
+// wiring uniform.
 #define TAXI_USER_HANDLER(ClassName, NameLiteral)                            \
     class ClassName final                                                    \
         : public userver::server::handlers::HttpHandlerBase {                \
@@ -25,6 +31,8 @@ namespace taxi::user::handlers {
     private:                                                                 \
         repository::UserRepository& users_;                                  \
         const auth::AuthService& auth_;                                      \
+        cache::RedisClient& redis_;                                          \
+        cache::RateLimiter& rate_limiter_;                                   \
     };
 
 TAXI_USER_HANDLER(AuthLogin,        "handler-auth-login")

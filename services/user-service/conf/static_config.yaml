@@ -31,6 +31,16 @@ components_manager:
             jwt_ttl_seconds: 3600
             password_pepper: taxi-svc-v1
 
+        # Redis-backed cache + rate limiter (lab 5). Host/port overridable via
+        # REDIS_HOST / REDIS_PORT env. Backends degrade gracefully if Redis
+        # is unreachable — cache misses fall through to DB, rate-limit fails
+        # open.
+        redis-client:
+            host: redis
+            port: 6379
+            connect_timeout_ms: 500
+        rate-limiter: {}
+
         # Backend selector. Override with TAXI_DB_BACKEND=sqlite|postgres.
         user-repository:
             backend: sqlite

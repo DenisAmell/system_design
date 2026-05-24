@@ -33,22 +33,29 @@ docker compose up --build -d
 | <http://localhost:8080> | REST API                       |
 | <http://localhost:8081> | Swagger UI  |
 
+\
 По умолчанию API использует PostgreSQL. Для запуска старого SQLite-режима:
 
 ```bash
 TAXI_DB_BACKEND=sqlite docker compose up --build -d
 ```
 
-SQL-артефакты лабораторной 3 находятся в папке [database](./database):
-`schema.sql`, `data.sql`, `queries.sql`, `optimization.md`.
-
-MongoDB-артефакты лабораторной 4 находятся в папке [mongodb](./mongodb):
-`schema_design.md`, `data.js`, `queries.js`, `validation.js`, `README.md`.
-Mongo backend для API подключен к `user-service` и включается так:
+Запуск в mongo режиме:
 
 ```bash
 TAXI_USER_DB_BACKEND=mongo docker compose up --build -d
 ```
+
+Основные переменные:
+- `TAXI_DB_BACKEND=postgres` — все сервисы используют PostgreSQL
+- `TAXI_DB_BACKEND=sqlite` — все сервисы используют SQLite
+- `TAXI_USER_DB_BACKEND=mongo` - `user-service` использует MongoDB 
+- `TAXI_POSTGRES_DSN` — строка подключения PostgreSQL
+- `TAXI_SQLITE_USERS_DB` — путь к SQLite-файлу пользователей
+- `TAXI_SQLITE_RIDES_DB` — путь к SQLite-файлу поездок
+
+
+
 
 ## Документация
 
@@ -57,7 +64,16 @@ TAXI_USER_DB_BACKEND=mongo docker compose up --build -d
 - [lab2](./docs/lab2.md) — Проектирование, реализация, документирование и тестирование REST API.
 - [lab3](./docs/lab3.md) — Проектирование PostgreSQL БД, индексы, оптимизация и подключение API.
 - [lab4](./docs/lab4.md) — Проектирование MongoDB, CRUD, валидация схем и подключение API.
+- [lab5](./docs/lab5.md) — Redis-кеш и rate limiting на горячих endpoint'ах.
 
 ## Файлы
 - [workspace.dsl](./workspace.dsl) — описание архитектуры в формате Structurizr DSL.
 - [openapi.yaml](./openapi.yaml) — спецификация API.
+- [performance_design](./performance_design.md) - описание стратегии кеширования и rate limiting
+
+SQL-артефакты находятся в папке [database](./database):
+`schema.sql`, `data.sql`, `queries.sql`, `optimization.md`.
+
+MongoDB-артефакты лнаходятся в папке [mongodb](./mongodb):
+`schema_design.md`, `data.js`, `queries.js`, `validation.js`, `README.md`.
+

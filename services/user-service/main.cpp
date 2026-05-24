@@ -5,6 +5,8 @@
 
 #include "auth/auth_checker.hpp"
 #include "auth/auth_service.hpp"
+#include "cache/rate_limiter.hpp"
+#include "cache/redis_client.hpp"
 #include "handlers/handlers.hpp"
 #include "repository/user_repository.hpp"
 
@@ -15,6 +17,8 @@ int main(int argc, char* argv[]) {
     auto component_list = userver::components::MinimalServerComponentList()
         .Append<userver::components::TestsuiteSupport>()
         .Append<taxi::auth::AuthService>()
+        .Append<taxi::cache::RedisClient>()
+        .Append<taxi::cache::RateLimiter>()
         .Append<taxi::user::repository::UserRepository>()
         .Append<taxi::user::handlers::AuthLogin>()
         .Append<taxi::user::handlers::UserCreate>()

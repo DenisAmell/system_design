@@ -6,12 +6,15 @@ x-backend-base: &backend-base
     JWT_SECRET: change-me-in-prod
     PASSWORD_PEPPER: taxi-svc-v1
     TAXI_DB_BACKEND: ${TAXI_DB_BACKEND:-postgres}
-    TAXI_USER_DB_BACKEND: ${TAXI_USER_DB_BACKEND:-mongo}
+    TAXI_USER_DB_BACKEND: ${TAXI_USER_DB_BACKEND:-postgres}
     TAXI_DRIVER_DB_BACKEND: ${TAXI_DRIVER_DB_BACKEND:-}
     TAXI_RIDE_DB_BACKEND: ${TAXI_RIDE_DB_BACKEND:-}
     TAXI_POSTGRES_DSN: host=postgres port=5432 dbname=taxi user=taxi password=taxi
     TAXI_MONGO_URI: mongodb://taxi:taxi@mongo:27017/taxi?authSource=admin
     TAXI_MONGO_DB: taxi
+    REDIS_HOST: redis
+    REDIS_PORT: "6379"
+    LOGIN_RATE_LIMIT: ${LOGIN_RATE_LIMIT:-30}
 services:
 
   postgres:
@@ -34,6 +37,19 @@ services:
       retries: 10
     restart: unless-stopped
 
+  redis:
+    image: redis:7-alpine
+    container_name: taxi-redis
+    command: ["redis-server", "--save", "", "--appendonly", "no"]
+    ports:
+      - "${REDIS_PORT_HOST:-6379}:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    restart: unless-stopped
+
   mongo:
     image: mongo:7
     container_name: taxi-mongo
@@ -48,7 +64,7 @@ services:
       - ./mongodb/validation.js:/docker-entrypoint-initdb.d/01-validation.js:ro
       - ./mongodb/data.js:/docker-entrypoint-initdb.d/02-data.js:ro
     healthcheck:
-      test: ["CMD", "mongosh", "--quiet", "--eval", "db.adminCommand('ping').ok"]
+      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
       interval: 5s
       timeout: 3s
       retries: 20
@@ -80,6 +96,8 @@ services:
         condition: service_healthy
       mongo:
         condition: service_healthy
+      redis:
+        condition: service_healthy
     volumes:
       - taxi-users-data:/data 
 
@@ -91,6 +109,8 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+      redis:
+        condition: service_healthy
     volumes:
       - taxi-users-data:/data
 
@@ -101,6 +121,8 @@ services:
               "--config", "/app/conf/ride-service/static_config.yaml"]
     depends_on:
       postgres:
+        condition: service_healthy
+      redis:
         condition: service_healthy
     volumes:
       - taxi-rides-data:/data
